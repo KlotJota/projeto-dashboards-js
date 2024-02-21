@@ -3,6 +3,13 @@ import { Types } from 'mongoose';
 import Controller from './Controller';
 import User from '../schemas/User';
 import ValidationService from '../services/ValidationService';
+import HttpException from '../errors/HttpException';
+import HttpStatusCode from '../responses/HttpStatusCode';
+import ServerErrorException from '../errors/ServerErrorException';
+import IdInvalidException from '../errors/IdInvalidException';
+import NotFoundException from '../errors/NotFoundEXception';
+import responseCreate from '../responses/ResponseCreate';
+import responseOk from '../responses/ResponseOk';
 
 class UserController extends Controller {
   constructor() {
@@ -18,46 +25,70 @@ class UserController extends Controller {
   }
 
   private async list(req: Request, res: Response, next: NextFunction): Promise<Response> {
-    const users = await User.find();
-    return res.send(users);
+    try {
+      const users = await User.find();
+      return responseOk(res, users);
+    } catch (error) {
+      return res.send(new ServerErrorException(error));
+      // return res.send(new HttpException(HttpStatusCode.INTERNAL_SERVER_ERROR, 'Erro interno no servidor'));
+    }
   }
 
   private async findById(req: Request, res: Response, next: NextFunction): Promise<Response> {
-    const { id } = req.params;
+    try {
+      const { id } = req.params;
+      if (ValidationService.validateId(id)) return res.status(HttpStatusCode.BAD_REQUEST).send(new IdInvalidException());
 
-    if (ValidationService.validateId(id)) return res.status(400).send('ta certo nao kk'); // procura o id e envia erro caso nao achar
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(HttpStatusCode.NOT_FOUND).send(new NotFoundException());
+      }
 
-    const user = await User.findById(id);
-    return res.send(user);
+      return responseOk(res, user);
+    } catch (error) {
+      return res.send(new ServerErrorException(error));
+    }
   }
 
   private async create(req: Request, res: Response, next: NextFunction): Promise<Response> {
-    const user = await User.create(req.body);
+    try {
+      const user = await User.create(req.body);
 
-    return res.send(user);
+      return responseCreate(res, user);
+    } catch (error) {
+      return res.send(new ServerErrorException(error));
+    }
   }
 
   private async edit(req: Request, res: Response, next: NextFunction): Promise<Response> {
-    const { id } = req.params;
-    if (ValidationService.validateId(id)) return res.status(400).send('ta certo nao kk');
+    try {
+      const { id } = req.params;
+      if (ValidationService.validateId(id)) return res.status(HttpStatusCode.BAD_REQUEST).send(new IdInvalidException());
 
-    const user = await User.findByIdAndUpdate(id, req.body).exec();
+      const user = await User.findByIdAndUpdate(id, req.body).exec();
 
-    return res.send(user);
+      return responseOk(res, user);
+    } catch (error) {
+      return res.send(new ServerErrorException(error));
+    }
   }
 
   private async delete(req: Request, res: Response, next: NextFunction): Promise<Response> {
-    const { id } = req.params;
-    if (ValidationService.validateId(id)) return res.status(400).send('ta certo nao kk');
+    try {
+      const { id } = req.params;
+      if (ValidationService.validateId(id)) return res.status(HttpStatusCode.BAD_REQUEST).send(new IdInvalidException());
 
-    const user = await User.findById(id);
+      const user = await User.findById(id);
 
-    if (!user) {
-      return res.status(404).send('Usuário não encontrado.');
+      if (!user) {
+        return res.status(HttpStatusCode.NOT_FOUND).send(new NotFoundException());
+      }
+
+      await user.deleteOne();
+      return responseOk(res, user);
+    } catch (error) {
+      return res.send(new ServerErrorException(error));
     }
-
-    await user.deleteOne();
-    return res.send(user);
   }
 }
 

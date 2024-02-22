@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import Controller from './Controller/Controller';
+import notFoundErrorMiddleware from './middlewares/NotFoundErrorMiddleware';
+import runTimeErrorMiddleware from './middlewares/RunTimeErrorMiddleware';
 
 class App {
 public app: express.Application;
@@ -14,6 +16,8 @@ public constructor(controllers: Controller[]) {
   this.connectDataBase();
   this.initExpressJson();
   this.initController(controllers);
+  this.initNotFoundErrorMiddleware();
+  this.initRunTimeErrorMiddleware();
 }
 
 // Inicia o BD
@@ -37,6 +41,14 @@ private initController(controllers: Controller[]): void {
   controllers.forEach((controller) => {
     this.app.use('/', controller.router);
   });
+}
+
+private initNotFoundErrorMiddleware() {
+  this.app.all('*', notFoundErrorMiddleware); // graças ao '*', todas as requisições irão passar por aqui
+}
+
+private initRunTimeErrorMiddleware() {
+  this.app.use(runTimeErrorMiddleware);
 }
 
 public listen(port: number): void {

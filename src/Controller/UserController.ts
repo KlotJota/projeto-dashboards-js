@@ -1,15 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
-import { Types } from 'mongoose';
 import Controller from './Controller';
 import User from '../schemas/User';
 import ValidationService from '../services/ValidationService';
-import HttpException from '../errors/HttpException';
-import HttpStatusCode from '../responses/HttpStatusCode';
 import ServerErrorException from '../errors/ServerErrorException';
-import IdInvalidException from '../errors/IdInvalidException';
 import NotFoundException from '../errors/NotFoundEXception';
 import responseCreate from '../responses/ResponseCreate';
 import responseOk from '../responses/ResponseOk';
+import NoContentException from '../errors/NoContentException';
 
 class UserController extends Controller {
   constructor() {
@@ -27,26 +24,30 @@ class UserController extends Controller {
   private async list(req: Request, res: Response, next: NextFunction): Promise<Response> {
     try {
       const users = await User.find();
-      return responseOk(res, users);
+
+      if (users.length) {
+        return responseOk(res, users);
+      }
+      next(new NoContentException());
+      return res; // Retornar res diretamente
     } catch (error) {
-      return res.send(new ServerErrorException(error));
-      // return res.send(new HttpException(HttpStatusCode.INTERNAL_SERVER_ERROR, 'Erro interno no servidor'));
+      next(new ServerErrorException(error));
+      return res; // Retornar res diretamente
     }
   }
 
   private async findById(req: Request, res: Response, next: NextFunction): Promise<Response> {
     try {
       const { id } = req.params;
-      if (ValidationService.validateId(id)) return res.status(HttpStatusCode.BAD_REQUEST).send(new IdInvalidException());
+      if (ValidationService.validateId(id, next)) return res; // Adiciona "return" vazio aqui
 
       const user = await User.findById(id);
-      if (!user) {
-        return res.status(HttpStatusCode.NOT_FOUND).send(new NotFoundException());
-      }
-
-      return responseOk(res, user);
+      if (user) return responseOk(res, user);
+      next(new NoContentException());
+      return res;
     } catch (error) {
-      return res.send(new ServerErrorException(error));
+      next(new ServerErrorException(error));
+      return res;
     }
   }
 
@@ -56,38 +57,45 @@ class UserController extends Controller {
 
       return responseCreate(res, user);
     } catch (error) {
-      return res.send(new ServerErrorException(error));
+      next(new ServerErrorException(error));
+      return res;
     }
   }
 
   private async edit(req: Request, res: Response, next: NextFunction): Promise<Response> {
     try {
       const { id } = req.params;
-      if (ValidationService.validateId(id)) return res.status(HttpStatusCode.BAD_REQUEST).send(new IdInvalidException());
+      if (ValidationService.validateId(id, next)) return res;
 
       const user = await User.findByIdAndUpdate(id, req.body).exec();
 
-      return responseOk(res, user);
+      if (user) return responseOk(res, user);
+
+      next(new NoContentException());
+      return res;
     } catch (error) {
-      return res.send(new ServerErrorException(error));
+      next(new ServerErrorException(error));
+      return res;
     }
   }
 
   private async delete(req: Request, res: Response, next: NextFunction): Promise<Response> {
     try {
       const { id } = req.params;
-      if (ValidationService.validateId(id)) return res.status(HttpStatusCode.BAD_REQUEST).send(new IdInvalidException());
+      if (ValidationService.validateId(id, next)) return res;
 
       const user = await User.findById(id);
 
       if (!user) {
-        return res.status(HttpStatusCode.NOT_FOUND).send(new NotFoundException());
+        next(new NotFoundException());
+        return res;
       }
 
       await user.deleteOne();
       return responseOk(res, user);
     } catch (error) {
-      return res.send(new ServerErrorException(error));
+      next(new ServerErrorException(error));
+      return res;
     }
   }
 }

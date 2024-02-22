@@ -18,7 +18,7 @@ function isMongoException(error): boolean {
 }
 
 function isMongoError(error): boolean {
-  return error.name === 'MongoError';
+  return error.name === 'MongoServerError';
 }
 
 function isValidationError(error): boolean {

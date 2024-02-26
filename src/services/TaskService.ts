@@ -11,14 +11,14 @@ export enum TaskFilterEnum {
 }
 
 class TaskService {
-  public getParamsList(req: Request): FilterQuery<TaskInterface[]> {
+  public getParamsList(req: Request): FilterQuery<TaskInterface> {
     const { filter, _id } = req.params;
-    if (!filter) return null; // Retorna um objeto vazio se o filtro for nulo
 
     if (TaskFilterEnum[TaskFilterEnum.MY] === TaskFilterEnum[filter]) return { responsible: _id };
     if (TaskFilterEnum[TaskFilterEnum.OPENED] === TaskFilterEnum[filter]) return { status: StatusEnum.OPEN };
     if (TaskFilterEnum[TaskFilterEnum.FINISHED] === TaskFilterEnum[filter]) return { status: StatusEnum.FINISHED };
-    if (TaskFilterEnum[TaskFilterEnum.ALL] === TaskFilterEnum[filter]) return null;
+    if (TaskFilterEnum[TaskFilterEnum.ALL] === TaskFilterEnum[filter]) return {};
+    return {}; // Retorna um objeto vazio se o filtro for nulo
   }
 
   public checkStatusFinished(task: TaskInterface) {

@@ -76,7 +76,7 @@ class TaskController extends Controller {
       let task: TaskInterface = req.body;
       TaskService.checkStatusFinished(task);
 
-      const updatedTask = await Task.findByIdAndUpdate(id, req.body);
+      const updatedTask = await Task.findByIdAndUpdate(id, task);
       task = updatedTask || task;
 
       if (task) {

@@ -1,21 +1,21 @@
 import { NextFunction, Request, Response } from 'express';
 import Controller from './Controller';
-import User from '../schemas/User';
 import ValidationService from '../services/ValidationService';
 import ServerErrorException from '../errors/ServerErrorException';
 import NotFoundException from '../errors/NotFoundEXception';
 import responseCreate from '../responses/ResponseCreate';
 import responseOk from '../responses/ResponseOk';
 import NoContentException from '../errors/NoContentException';
-import UserService from '../services/UserService';
+import Task, { TaskInterface } from '../schemas/Task';
+import TaskService from '../services/TaskService';
 
-class UserController extends Controller {
+class TaskController extends Controller {
   constructor() {
-    super('/user');
+    super('/task');
   }
 
   protected initRoutes(): void {
-    this.router.get(this.path, this.list);
+    this.router.get(`${this.path}/:filter/:_id`, this.list);
     this.router.get(`${this.path}/:id`, this.findById);
     this.router.post(this.path, this.create);
     this.router.put(`${this.path}/:id`, this.edit);
@@ -24,16 +24,15 @@ class UserController extends Controller {
 
   private async list(req: Request, res: Response, next: NextFunction): Promise<Response> {
     try {
-      const users = await User.find();
+      const tasks = await Task.find(TaskService.getParamsList(req)).populate('responsible');
 
-      if (users.length) {
-        return responseOk(res, users);
-      }
+      if (tasks.length) return responseOk(res, tasks);
+
       next(new NoContentException());
-      return res; // Retornar res diretamente
+      return res;
     } catch (error) {
       next(new ServerErrorException(error));
-      return res; // Retornar res diretamente
+      return res;
     }
   }
 
@@ -42,8 +41,8 @@ class UserController extends Controller {
       const { id } = req.params;
       if (ValidationService.validateId(id, next)) return res; // Adiciona "return" vazio aqui
 
-      const user = await User.findById(id);
-      if (user) return responseOk(res, user);
+      const task = await Task.findById(id);
+      if (task) return responseOk(res, task);
       next(new NoContentException());
       return res;
     } catch (error) {
@@ -54,9 +53,15 @@ class UserController extends Controller {
 
   private async create(req: Request, res: Response, next: NextFunction): Promise<Response> {
     try {
-      const user = await User.create(req.body);
+      let task: TaskInterface = req.body;
 
-      return responseCreate(res, user);
+      TaskService.checkStatusFinished(task);
+      task = await Task.create(task);
+      const foundTask = await Task.findById(task.id).populate('responsible');
+
+      task = foundTask || task;
+
+      return responseCreate(res, task);
     } catch (error) {
       next(new ServerErrorException(error));
       return res;
@@ -68,10 +73,18 @@ class UserController extends Controller {
       const { id } = req.params;
       if (ValidationService.validateId(id, next)) return res;
 
-      const user = await User.findByIdAndUpdate(id, req.body).exec();
+      let task: TaskInterface = req.body;
+      TaskService.checkStatusFinished(task);
 
-      if (user) return responseOk(res, user);
+      const updatedTask = await Task.findByIdAndUpdate(id, req.body);
+      task = updatedTask || task;
 
+      if (task) {
+        const foundTask = await Task.findById(task.id).populate('responsible');
+
+        task = foundTask || task;
+        return responseOk(res, task);
+      }
       next(new NoContentException());
       return res;
     } catch (error) {
@@ -84,17 +97,16 @@ class UserController extends Controller {
     try {
       const { id } = req.params;
       if (ValidationService.validateId(id, next)) return res; // caso id nao existe, para a execução
-      if (await UserService.validateExistAnyTask(id, next)) return res; // caso user possua tarefas, para a execução
 
-      const user = await User.findById(id);
+      const task = await Task.findById(id);
 
-      if (!user) {
+      if (!task) {
         next(new NotFoundException());
         return res;
       }
 
-      await user.deleteOne();
-      return responseOk(res, user);
+      await task.deleteOne();
+      return responseOk(res, task);
     } catch (error) {
       next(new ServerErrorException(error));
       return res;
@@ -102,4 +114,4 @@ class UserController extends Controller {
   }
 }
 
-export default UserController;
+export default TaskController;
